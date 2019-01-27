@@ -1,0 +1,453 @@
+<head>
+
+<script
+    src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+    integrity="sha256-3edrmyuQ0w65f8gfBsqowzjJe2iM6n0nKciPUp8y+7E="
+    crossorigin="anonymous"></script>
+
+<script
+    src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+
+<link
+    rel="stylesheet"
+    href="https://use.fontawesome.com/releases/v5.6.3/css/all.css"
+    integrity="sha384-UHRtZLI+pbxtHCWp1t77Bi1L4ZtiqrqD80Kn4Z8NTSRyMA2Fd33n5dQ8lWUE00s/"
+    crossorigin="anonymous">
+
+<style>
+.header {
+  margin-left: 20px;
+}
+.controls {
+  margin-left: 10px;
+  margin-top: 10px;
+}
+.controls a {
+  margin-left: 10px;
+}
+.bluecount {
+  color: blue;
+}
+.pinkcount {
+  color: #FF33F9;
+}
+</style>
+
+</head>
+<body>
+
+<div class="header">
+  <span>Rules:</span>
+  <select id="rules">
+    <option value="random">Random</option>
+    <option value="left">Left</option>
+    <option value="right">Right</option>
+    <option value="up">Up</option>
+    <option value="down">Down</option>
+  </select>
+
+  <span class="bluecount"></span>
+  <span class="pinkcount"></span>
+
+  <div class="controls">
+    <a class="play"><i class="fas fa-play"></i></a>
+    <a class="pause"><i class="fas fa-pause"></i></a>
+    <a class="stepforward"><i class="fas fa-step-forward"></i></a>
+    <a class="reset"><i class="fas fa-sync-alt"></i></a>
+  </div>
+</div>
+
+<canvas id="universe" height="800" width="800">
+</canvas>
+
+<script>
+
+$(document).ready(function() {
+  const rows = 70;
+  const columns = 70;
+
+  const cellSize = 10;
+
+  var canvas = document.getElementById("universe");
+  var ctx = canvas.getContext("2d");
+
+  function Cell() {
+    let c = () => {};
+
+    let row,
+        col,
+        color;
+
+    c.clone = function() {
+      return Cell()
+          .row(row)
+          .col(col)
+          .color(color);
+    };
+
+    c.row = function(_) {
+      if (!arguments.length) return row;
+      row = _;
+      return c;
+    };
+
+    c.col = function(_) {
+      if (!arguments.length) return col;
+      col = _;
+      return c;
+    };
+
+    c.color = function(_) {
+      if (!arguments.length) return color;
+      color = _;
+      return c;
+    };
+
+    c.draw = function() {
+      const cx = cellSize / 2 + col * cellSize,
+            cy = cellSize / 2 + row * cellSize,
+            r = (cellSize) / 2;
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+      ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.fill();
+    };
+
+    return c;
+  }
+
+  let cells = [],
+      oldCells = [];
+
+  let state = 'paused';
+
+  function handleControls() {
+    $('.play').click(function() {
+      state = 'playing';
+    });
+
+    $('.pause').click(function() {
+      state = 'paused';
+    });
+
+    $('.reset').click(function() {
+      state = 'paused';
+      createUniverse();
+      initialState();
+      drawUniverse();
+    });
+
+    let previouslyUsedColor = undefined;
+
+    $(canvas).click(function(e) {
+      const rowi = Math.floor(e.offsetY / cellSize),
+            coli = Math.floor(e.offsetX / cellSize);
+
+      const cell = cells[rowi][coli];
+      if (cell) {
+        let color = cell.color();
+        colors.some(function(c, i) {
+          if (color !== c) {
+            return;
+          }
+
+          let nextColor;
+          if (previouslyUsedColor && color !== previouslyUsedColor) {
+            nextColor = previouslyUsedColor;
+          } else {
+            nextColor = colors[i + 1];
+            if (!nextColor) {
+              nextColor = colors[0];
+            }
+          }
+
+          previouslyUsedColor = nextColor;
+
+          cell.color(nextColor);
+          cell.draw();
+          return true;
+        });
+      }
+    });
+
+    $('.stepforward').click(function() {
+      state = 'paused';
+      oneMove();
+    });
+
+    document.onkeyup = function(e) {
+      if (e.which === 37) { // left arrow
+        $('#rules').val('left');
+        $('.stepforward').click();
+        return;
+      }
+
+      if (e.which === 39) { // right arrow
+        $('#rules').val('right');
+        $('.stepforward').click();
+        return;
+      }
+
+      if (e.which === 38) { // up arrow
+        $('#rules').val('up');
+        $('.stepforward').click();
+        return;
+      }
+
+      if (e.which === 40) { // down arrow
+        $('#rules').val('down');
+        $('.stepforward').click();
+        return;
+      }
+
+      if (e.which === 32) { // space key
+        $('#rules').val('random');
+        $('.stepforward').click();
+        return;
+      }
+
+      console.log(e.which);
+    }
+  }
+
+  const foodColor = '#77ab59',
+        rainbowFactionColor = '#FF33F9',
+        carnivoresFactionColor = 'blue',
+        deadZoneColor = 'black',
+        recoveringZoneColor = '#f0f7da';
+
+  const colors = [foodColor, rainbowFactionColor, carnivoresFactionColor, deadZoneColor, recoveringZoneColor];
+
+  function createUniverse() {
+    let rowi, coli;
+
+    cells = [];
+    for (rowi = 0; rowi < rows; ++rowi) {
+      let row = [];
+      for (coli = 0; coli < columns; ++coli) {
+        row.push(Cell()
+            .row(rowi)
+            .col(coli)
+            .color(foodColor));
+      }
+
+      cells.push(row);
+    }
+  }
+
+  function upOf(cell) {
+    if (cell.row() === 0) {
+      return undefined;
+    }
+
+    return oldCells[cell.row() - 1][cell.col()];
+  }
+
+  function downOf(cell) {
+    if (cell.row() === rows - 1) {
+      return undefined;
+    }
+
+    return oldCells[cell.row() + 1][cell.col()];
+  }
+
+  function randomOf(cell) {
+    const r = Math.floor(Math.random() * 4);
+    if (r === 0) {
+      return leftOf(cell);
+    }
+
+    if (r === 1) {
+      return rightOf(cell);
+    }
+
+    if (r === 2) {
+      return upOf(cell);
+    }
+
+    if (r === 3) {
+      return downOf(cell);
+    }
+  }
+
+  function leftOf(cell) {
+    if (cell.col() === 0) {
+      return undefined;
+    }
+
+    return oldCells[cell.row()][cell.col() - 1];
+  }
+
+  function rightOf(cell) {
+    if (cell.col() === columns - 1) {
+      return undefined;
+    }
+
+    return oldCells[cell.row()][cell.col() + 1];
+  }
+
+  function drawUniverse() {
+    let rowi, coli;
+
+    let blueCount = 0,
+        pinkCount = 0;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    cells.forEach(function(row) {
+      row.forEach(function(cell) {
+        cell.draw();
+        let c = cell.color();
+        if (c === rainbowFactionColor) {
+          pinkCount++;
+        } else if (c === carnivoresFactionColor) {
+          blueCount++;
+        }
+      })
+    });
+
+    $('.bluecount').text(blueCount);
+    $('.pinkcount').text(pinkCount);
+  }
+
+  createUniverse();
+  handleControls();
+
+  function initialState() {
+    cells[1][1].color(rainbowFactionColor);
+    cells[rows - 2][columns - 2].color(carnivoresFactionColor);
+  }
+
+  initialState();
+  drawUniverse();
+
+  const ruleIndex = ['left', 'right', 'up', 'down'];
+
+  function moveTimeForward() {
+    let rule = $('#rules').val();
+    if (rule === 'random') {
+      randomPropagate();
+      return;
+    }
+
+    if (rule === 'left') {
+      leftPropagate();
+      return;
+    }
+
+    if (rule === 'right') {
+      rightPropagate();
+      return;
+    }
+
+    if (rule === 'up') {
+      upPropagate();
+      return;
+    }
+
+    if (rule === 'down') {
+      downPropagate();
+      return;
+    }
+  }
+
+  function randomPropagate() {
+    generalPropagate(randomOf);
+  }
+
+  function leftPropagate() {
+    generalPropagate(leftOf);
+  }
+
+  function futureCell(cell) {
+    return cells[cell.row()][cell.col()];
+  }
+
+  function generalPropagate(cb) {
+    cellCb(function(cell, rowi, coli, oldCells, cells) {
+      if (cell.color() == deadZoneColor) {
+        futureCell(cell).color(recoveringZoneColor);
+        return;
+      }
+
+      if (cell.color() == recoveringZoneColor) {
+        futureCell(cell).color(foodColor);
+        return;
+      }
+
+      if (cell.color() == foodColor) {
+        return;
+      }
+
+      const l = leftOf(cell),
+            r = rightOf(cell),
+            u = upOf(cell),
+            d = downOf(cell);
+
+      if ((l && l.color() === foodColor) ||
+          (r && r.color() === foodColor) ||
+          (u && u.color() === foodColor) ||
+          (d && d.color() === foodColor)) {
+
+        const c = cb(cell);
+        if (c && c.color() === foodColor) {
+          futureCell(c).color(cell.color());
+        }
+      } else {
+        futureCell(cell).color(deadZoneColor);
+      }
+    });
+  }
+
+  function rightPropagate() {
+    generalPropagate(rightOf);
+  }
+
+  function upPropagate() {
+    generalPropagate(upOf);
+  }
+
+  function downPropagate() {
+    generalPropagate(downOf);
+  }
+
+  function cellCb(cb) {
+    oldCells = cells.map(function(row) {
+      return row.map(function(col) {
+        return col.clone();
+      });
+    });
+
+    cells.forEach(function(row, rowi) {
+      row.forEach(function(col, coli) {
+        cb(oldCells[rowi][coli]);
+      })
+    });
+  }
+
+  let time = 0;
+
+  function oneMove() {
+    moveTimeForward();
+    drawUniverse();
+    ++time;
+  }
+
+  function play() {
+    setTimeout(function() {
+      if (state !== 'paused') {
+        oneMove();
+      }
+
+      play();
+    }, 100);
+  }
+
+  play();
+});
+
+</script>
+</body>
+
