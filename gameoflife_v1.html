@@ -25,6 +25,9 @@
 .controls a {
   margin-left: 10px;
 }
+.score {
+  margin-left: 20px;
+}
 .bluecount {
   color: blue;
 }
@@ -46,6 +49,13 @@
     <option value="down">Down</option>
   </select>
 
+  <span>Strategy:</span>
+  <select id="strategy">
+    <option value="normal">Normal</option>
+    <option value="aggresive">Aggresive</option>
+  </select>
+
+  <span class="score">Score:</span>
   <span class="bluecount"></span>
   <span class="pinkcount"></span>
 
@@ -63,47 +73,72 @@
 <script>
 
 $(document).ready(function() {
-  const rows = 70;
-  const columns = 70;
+  const rows = 80;
+  const columns = 80;
 
   const cellSize = 10;
+
+  let strategy = 'aggresive';
+  let rule = 'random';
 
   var canvas = document.getElementById("universe");
   var ctx = canvas.getContext("2d");
 
+  function CellType() {
+    let f = () => {};
+
+    let color;
+
+    f.color = function(_) {
+      if (!arguments.length) return color;
+      color = _;
+      return f;
+    };
+
+    f.moveTimeForward = function(cell, cb) {
+      // does nothing by default
+    };
+
+    return f;
+  }
+
   function Cell() {
-    let c = () => {};
+    let cell = () => {};
 
     let row,
         col,
-        color;
+        cellType;
 
-    c.clone = function() {
+    cell.clone = function() {
       return Cell()
           .row(row)
           .col(col)
-          .color(color);
+          .cellType(cellType);
     };
 
-    c.row = function(_) {
+    cell.moveTimeForward = function(cb) {
+      cellType.moveTimeForward(cell, cb);
+    };
+
+    cell.cellType = function(_) {
+      if (!arguments.length) return cellType;
+      cellType = _;
+      return cell;
+    };
+
+    cell.row = function(_) {
       if (!arguments.length) return row;
       row = _;
-      return c;
+      return cell;
     };
 
-    c.col = function(_) {
+    cell.col = function(_) {
       if (!arguments.length) return col;
       col = _;
-      return c;
+      return cell;
     };
 
-    c.color = function(_) {
-      if (!arguments.length) return color;
-      color = _;
-      return c;
-    };
-
-    c.draw = function() {
+    cell.draw = function() {
       const cx = cellSize / 2 + col * cellSize,
             cy = cellSize / 2 + row * cellSize,
             r = (cellSize) / 2;
@@ -111,11 +146,51 @@ $(document).ready(function() {
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, 2 * Math.PI);
       ctx.stroke();
-      ctx.fillStyle = color;
+      ctx.fillStyle = cellType.color();
       ctx.fill();
+
+      return cell;
     };
 
-    return c;
+    cell.up = function() {
+      if (row === 0) {
+        return undefined;
+      }
+
+      return oldCells[row - 1][col];
+    }
+
+    cell.down = function() {
+      if (row === rows - 1) {
+        return undefined;
+      }
+
+      return oldCells[row + 1][col];
+    };
+
+    cell.left = function() {
+      if (col === 0) {
+        return undefined;
+      }
+
+      return oldCells[row][col - 1];
+    };
+
+    cell.right = function() {
+      if (col === columns - 1) {
+        return undefined;
+      }
+
+      return oldCells[row][col + 1];
+    };
+
+    cell.random = function() {
+      const r = Math.floor(Math.random() * 4);
+      const choice = [cell.left, cell.up, cell.right, cell.down];
+      return choice[r]();
+    };
+
+    return cell;
   }
 
   let cells = [],
@@ -139,7 +214,7 @@ $(document).ready(function() {
       drawUniverse();
     });
 
-    let previouslyUsedColor = undefined;
+    let previousCellType = undefined;
 
     $(canvas).click(function(e) {
       const rowi = Math.floor(e.offsetY / cellSize),
@@ -147,25 +222,25 @@ $(document).ready(function() {
 
       const cell = cells[rowi][coli];
       if (cell) {
-        let color = cell.color();
-        colors.some(function(c, i) {
-          if (color !== c) {
+        let cellType = cell.cellType();
+        cellTypes.some(function(c, i) {
+          if (cellType !== c) {
             return;
           }
 
-          let nextColor;
-          if (previouslyUsedColor && color !== previouslyUsedColor) {
-            nextColor = previouslyUsedColor;
+          let nextCellType;
+          if (previousCellType && cellType !== previousCellType) {
+            nextCellType = previousCellType;
           } else {
-            nextColor = colors[i + 1];
-            if (!nextColor) {
-              nextColor = colors[0];
+            nextCellType = cellTypes[i + 1];
+            if (!nextCellType) {
+              nextCellType = cellTypes[0];
             }
           }
 
-          previouslyUsedColor = nextColor;
+          previousCellType = nextCellType;
 
-          cell.color(nextColor);
+          cell.cellType(nextCellType);
           cell.draw();
           return true;
         });
@@ -207,18 +282,16 @@ $(document).ready(function() {
         $('.stepforward').click();
         return;
       }
-
-      console.log(e.which);
     }
   }
 
-  const foodColor = '#77ab59',
-        rainbowFactionColor = '#FF33F9',
-        carnivoresFactionColor = 'blue',
-        deadZoneColor = 'black',
-        recoveringZoneColor = '#f0f7da';
+  const rainbow = CellType().color('#FF33F9'),
+        carnivores = CellType().color('blue'),
+        food = CellType().color('#77ab59'),
+        dead = CellType().color('black'),
+        recovering = CellType().color('#f0f7da');
 
-  const colors = [foodColor, rainbowFactionColor, carnivoresFactionColor, deadZoneColor, recoveringZoneColor];
+  const cellTypes = [rainbow, carnivores, food, recovering, dead];
 
   function createUniverse() {
     let rowi, coli;
@@ -230,7 +303,7 @@ $(document).ready(function() {
         row.push(Cell()
             .row(rowi)
             .col(coli)
-            .color(foodColor));
+            .cellType(food));
       }
 
       cells.push(row);
@@ -238,59 +311,30 @@ $(document).ready(function() {
   }
 
   function upOf(cell) {
-    if (cell.row() === 0) {
-      return undefined;
-    }
-
-    return oldCells[cell.row() - 1][cell.col()];
+    return cell.up();
   }
 
   function downOf(cell) {
-    if (cell.row() === rows - 1) {
-      return undefined;
-    }
-
-    return oldCells[cell.row() + 1][cell.col()];
+    return cell.down();
   }
 
   function randomOf(cell) {
-    const r = Math.floor(Math.random() * 4);
-    if (r === 0) {
-      return leftOf(cell);
-    }
-
-    if (r === 1) {
-      return rightOf(cell);
-    }
-
-    if (r === 2) {
-      return upOf(cell);
-    }
-
-    if (r === 3) {
-      return downOf(cell);
-    }
+    return cell.random();
   }
 
   function leftOf(cell) {
-    if (cell.col() === 0) {
-      return undefined;
-    }
-
-    return oldCells[cell.row()][cell.col() - 1];
+    return cell.left();
   }
 
   function rightOf(cell) {
-    if (cell.col() === columns - 1) {
-      return undefined;
-    }
-
-    return oldCells[cell.row()][cell.col() + 1];
+    return cell.right();
   }
 
   function drawUniverse() {
     let rowi, coli;
 
+    strategy = $('#strategy').val();
+    rule = $('#rules').val();
     let blueCount = 0,
         pinkCount = 0;
 
@@ -299,10 +343,10 @@ $(document).ready(function() {
     cells.forEach(function(row) {
       row.forEach(function(cell) {
         cell.draw();
-        let c = cell.color();
-        if (c === rainbowFactionColor) {
+        let c = cell.cellType();
+        if (c === rainbow) {
           pinkCount++;
-        } else if (c === carnivoresFactionColor) {
+        } else if (c === carnivores) {
           blueCount++;
         }
       })
@@ -316,8 +360,8 @@ $(document).ready(function() {
   handleControls();
 
   function initialState() {
-    cells[1][1].color(rainbowFactionColor);
-    cells[rows - 2][columns - 2].color(carnivoresFactionColor);
+    cells[1][1].cellType(carnivores);
+    cells[rows - 2][columns - 2].cellType(rainbow);
   }
 
   initialState();
@@ -326,31 +370,15 @@ $(document).ready(function() {
   const ruleIndex = ['left', 'right', 'up', 'down'];
 
   function moveTimeForward() {
-    let rule = $('#rules').val();
-    if (rule === 'random') {
-      randomPropagate();
-      return;
-    }
+    const ruleFn = {
+      random: randomPropagate,
+      left: leftPropagate,
+      right: rightPropagate,
+      up: upPropagate,
+      down: downPropagate,
+    };
 
-    if (rule === 'left') {
-      leftPropagate();
-      return;
-    }
-
-    if (rule === 'right') {
-      rightPropagate();
-      return;
-    }
-
-    if (rule === 'up') {
-      upPropagate();
-      return;
-    }
-
-    if (rule === 'down') {
-      downPropagate();
-      return;
-    }
+    ruleFn[rule]();
   }
 
   function randomPropagate() {
@@ -365,39 +393,64 @@ $(document).ready(function() {
     return cells[cell.row()][cell.col()];
   }
 
-  function generalPropagate(cb) {
-    cellCb(function(cell, rowi, coli, oldCells, cells) {
-      if (cell.color() == deadZoneColor) {
-        futureCell(cell).color(recoveringZoneColor);
-        return;
-      }
+  dead.moveTimeForward = function(cell, cb) {
+    futureCell(cell).cellType(recovering);
+  };
 
-      if (cell.color() == recoveringZoneColor) {
-        futureCell(cell).color(foodColor);
-        return;
-      }
+  recovering.moveTimeForward = function(cell, cb) {
+    futureCell(cell).cellType(food);
+  };
 
-      if (cell.color() == foodColor) {
-        return;
-      }
+  function cellAroundFood(cell) {
+    const choice = [cell.left, cell.up, cell.right, cell.down];
 
-      const l = leftOf(cell),
-            r = rightOf(cell),
-            u = upOf(cell),
-            d = downOf(cell);
+    return choice.some(function(cb) {
+      const c = cb();
+      return (c && c.cellType() === food);
+    });
+  }
 
-      if ((l && l.color() === foodColor) ||
-          (r && r.color() === foodColor) ||
-          (u && u.color() === foodColor) ||
-          (d && d.color() === foodColor)) {
+  function convertEnemies(cell, cb, enemies) {
+    if (!cellAroundFood(cell)) {
+      futureCell(cell).cellType(dead);
+      return;
+    }
 
-        const c = cb(cell);
-        if (c && c.color() === foodColor) {
-          futureCell(c).color(cell.color());
+    const keepGoing = (strategy == 'aggresive') && (rule == 'random');
+    while (true) {
+      const c = cb(cell);
+      if (!c) {
+        if (keepGoing) {
+          continue;
+        } else {
+          return;
         }
-      } else {
-        futureCell(cell).color(deadZoneColor);
       }
+
+      if (enemies.indexOf(c.cellType()) >= 0) {
+        futureCell(c).cellType(cell.cellType());
+        return;
+      }
+
+      if (keepGoing) {
+        continue;
+      } else {
+        return;
+      }
+    }
+  }
+
+  rainbow.moveTimeForward = function(cell, cb) {
+    convertEnemies(cell, cb, [food, carnivores]);
+  };
+
+  carnivores.moveTimeForward = function(cell, cb) {
+    convertEnemies(cell, cb, [food, rainbow]);
+  };
+
+  function generalPropagate(cb) {
+    cellCb(function(cell) {
+      cell.moveTimeForward(cb);
     });
   }
 
@@ -413,6 +466,25 @@ $(document).ready(function() {
     generalPropagate(downOf);
   }
 
+  function shuffle(array) {
+    var currentIndex = array.length, temporaryValue, randomIndex;
+
+    // While there remain elements to shuffle...
+    while (0 !== currentIndex) {
+
+      // Pick a remaining element...
+      randomIndex = Math.floor(Math.random() * currentIndex);
+      currentIndex -= 1;
+
+      // And swap it with the current element.
+      temporaryValue = array[currentIndex];
+      array[currentIndex] = array[randomIndex];
+      array[randomIndex] = temporaryValue;
+    }
+
+    return array;
+  }
+
   function cellCb(cb) {
     oldCells = cells.map(function(row) {
       return row.map(function(col) {
@@ -420,10 +492,17 @@ $(document).ready(function() {
       });
     });
 
+    let array = [];
     cells.forEach(function(row, rowi) {
       row.forEach(function(col, coli) {
-        cb(oldCells[rowi][coli]);
+        array.push(oldCells[rowi][coli]);
       })
+    });
+
+    shuffle(array);
+
+    array.forEach(function(cell) {
+      cb(cell);
     });
   }
 
