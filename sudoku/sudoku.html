@@ -1,0 +1,391 @@
+<head>
+
+<script
+    src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+    integrity="sha256-3edrmyuQ0w65f8gfBsqowzjJe2iM6n0nKciPUp8y+7E="
+    crossorigin="anonymous"></script>
+
+<script
+    src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.7.0/d3.min.js"></script>
+
+<style>
+.content {
+  margin-left: 200px;
+  margin-top: 200px;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  width: 270px;
+  height: 30px;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  flex-basis: 100%;
+  flex: 1;
+  width: 30px;
+  border: 1px solid #eee;
+  padding: 5px;
+  padding-left: 10px;
+}
+
+.row0 {
+  border-top: 2px solid #ccc;
+}
+
+.column0 {
+  border-left: 2px solid #ccc;
+}
+
+.row2, .row5, .row8 {
+  border-bottom: 2px solid #ccc;
+}
+
+.column2, .column5, .column8 {
+  border-right: 2px solid #ccc;
+}
+
+.controls {
+  margin-top: 20px;
+}
+
+</style>
+
+</head>
+<body>
+
+<div class="content">
+  <h4>Sudoku Solver</h4>
+
+  <div class="sudoku">
+    <div class='row row0'>
+      <div class='column column0'></div>
+      <div class='column column1'></div>
+      <div class='column column2'></div>
+      <div class='column column3'></div>
+      <div class='column column4'></div>
+      <div class='column column5'></div>
+      <div class='column column6'></div>
+      <div class='column column7'></div>
+      <div class='column column8'></div>
+    </div>
+    <div class='row row1'>
+      <div class='column column0'></div>
+      <div class='column column1'></div>
+      <div class='column column2'></div>
+      <div class='column column3'></div>
+      <div class='column column4'></div>
+      <div class='column column5'></div>
+      <div class='column column6'></div>
+      <div class='column column7'></div>
+      <div class='column column8'></div>
+    </div>
+    <div class='row row2'>
+      <div class='column column0'></div>
+      <div class='column column1'></div>
+      <div class='column column2'></div>
+      <div class='column column3'></div>
+      <div class='column column4'></div>
+      <div class='column column5'></div>
+      <div class='column column6'></div>
+      <div class='column column7'></div>
+      <div class='column column8'></div>
+    </div>
+    <div class='row row3'>
+      <div class='column column0'></div>
+      <div class='column column1'></div>
+      <div class='column column2'></div>
+      <div class='column column3'></div>
+      <div class='column column4'></div>
+      <div class='column column5'></div>
+      <div class='column column6'></div>
+      <div class='column column7'></div>
+      <div class='column column8'></div>
+    </div>
+    <div class='row row4'>
+      <div class='column column0'></div>
+      <div class='column column1'></div>
+      <div class='column column2'></div>
+      <div class='column column3'></div>
+      <div class='column column4'></div>
+      <div class='column column5'></div>
+      <div class='column column6'></div>
+      <div class='column column7'></div>
+      <div class='column column8'></div>
+    </div>
+    <div class='row row5'>
+      <div class='column column0'></div>
+      <div class='column column1'></div>
+      <div class='column column2'></div>
+      <div class='column column3'></div>
+      <div class='column column4'></div>
+      <div class='column column5'></div>
+      <div class='column column6'></div>
+      <div class='column column7'></div>
+      <div class='column column8'></div>
+    </div>
+    <div class='row row6'>
+      <div class='column column0'></div>
+      <div class='column column1'></div>
+      <div class='column column2'></div>
+      <div class='column column3'></div>
+      <div class='column column4'></div>
+      <div class='column column5'></div>
+      <div class='column column6'></div>
+      <div class='column column7'></div>
+      <div class='column column8'></div>
+    </div>
+    <div class='row row7'>
+      <div class='column column0'></div>
+      <div class='column column1'></div>
+      <div class='column column2'></div>
+      <div class='column column3'></div>
+      <div class='column column4'></div>
+      <div class='column column5'></div>
+      <div class='column column6'></div>
+      <div class='column column7'></div>
+      <div class='column column8'></div>
+    </div>
+    <div class='row row8'>
+      <div class='column column0'></div>
+      <div class='column column1'></div>
+      <div class='column column2'></div>
+      <div class='column column3'></div>
+      <div class='column column4'></div>
+      <div class='column column5'></div>
+      <div class='column column6'></div>
+      <div class='column column7'></div>
+      <div class='column column8'></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="step" type="button">Step</button>
+    <button class="play" type="button">Play</button>
+  </div>
+</div>
+
+<script>
+
+$(document).ready(function() {
+
+const initialPuzzle = [
+  [0, 8, 6, 1, 0, 0, 5, 0, 0],
+  [0, 0, 0, 5, 3, 0, 0, 2, 6],
+  [3, 5, 0, 8, 0, 0, 0, 0, 7],
+  [0, 0, 0, 4, 0, 0, 3, 6, 1],
+  [0, 0, 8, 0, 5, 0, 7, 0, 0],
+  [2, 6, 1, 0, 0, 7, 0, 0, 0],
+  [8, 0, 0, 0, 0, 6, 0, 3, 9],
+  [7, 2, 0, 0, 1, 5, 0, 0, 0],
+  [0, 0, 9, 0, 0, 3, 1, 7, 0],
+];
+
+function clone(a) {
+  const r = [];
+  $.each(initialPuzzle, function(rowi, row) {
+    r.push(row.map(function(c) {
+      return c;
+    }));
+  });
+
+  return r;
+}
+
+const currentState = clone(initialPuzzle);
+
+function eachCell(state, cb) {
+  let done = false;
+
+  $.each(state, function(rowi, row) {
+    if (done) {
+      return;
+    }
+
+    $.each(row, function(coli, col) {
+      if (done) {
+        return;
+      }
+
+      const r = cb(rowi, coli, row, col);
+      if (r) {
+        done = true;
+      }
+    });
+  });
+}
+
+function paint() {
+  eachCell(currentState, function(rowi, coli, row, col) {
+    const $cell = $(`.row${rowi} .column${coli}`);
+    $cell.text(col > 0 ? col : '');
+    if (col && col === initialPuzzle[rowi][coli]) {
+      $cell.css('background-color', 'lightgrey');
+    }
+  });
+}
+
+paint();
+
+function eachRow(state, rowi, cb) {
+  $.each(state[rowi], function(coli, col) {
+    cb(rowi, coli, state[rowi], col);
+  });
+}
+
+function eachColumn(state, coli, cb) {
+  $.each(state, function(rowi, row) {
+    cb(rowi, coli, row, row[coli]);
+  });
+}
+
+function eachBox(state, in_rowi, in_coli, cb) {
+  eachCell(state, function(rowi, coli, row, col) {
+    if (parseInt(rowi / 3) == parseInt(in_rowi / 3)) {
+      if (parseInt(coli / 3) == parseInt(in_coli / 3)) {
+        cb(rowi, coli, row, col);
+      }
+    }
+  });
+}
+
+$('.play').click(function() {
+  play();
+});
+
+function play() {
+  let found = step();
+  if (!found) {
+    return;
+  }
+
+  setTimeout(function() {
+    play();
+  }, 0);
+};
+
+$('.step').click(function() {
+  step();
+});
+
+function step() {
+  const currentPossibilities = [[], [], [], [], [], [], [], [], []];
+  let found = false;
+
+  eachCell(currentState, function(rowi, coli, row, col) {
+    if (col > 0) {
+      return;
+    }
+
+    const possibleValues = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    function removePossibleValue(col) {
+      if (col > 0) {
+        possibleValues.delete(col);
+      }
+    }
+
+    eachRow(currentState, rowi, function(rowi, coli, row, col) {
+      removePossibleValue(col);
+    });
+
+    eachColumn(currentState, coli, function(rowi, coli, row, col) {
+      removePossibleValue(col);
+    });
+
+    eachBox(currentState, rowi, coli, function(rowi, coli, row, col) {
+      removePossibleValue(col);
+    });
+
+    currentPossibilities[rowi][coli] = possibleValues;
+
+    if (possibleValues.size == 1) {
+      const v = Array.from(possibleValues)[0];
+      currentState[rowi][coli] = v;
+      paint();
+      found = true;
+      return true;
+    }
+  });
+
+  if (!found) {
+    console.log('current', currentPossibilities);
+    eachCell(currentPossibilities, function(rowi, coli, row, col) {
+      if (!col) {
+        return;
+      }
+
+      let possibleValues = new Set(col);
+
+      eachRow(currentPossibilities, rowi, function(rowi, _coli, row, col) {
+        if (!col) {
+          return;
+        }
+
+        if (coli === _coli) {
+          return;
+        }
+
+        col.forEach(function(v) {
+          possibleValues.delete(v);
+        });
+      });
+
+      if (possibleValues.size < 1) {
+        possibleValues = new Set(col);
+
+        eachColumn(currentPossibilities, coli, function(_rowi, coli, row, col) {
+          if (!col) {
+            return;
+          }
+
+          if (rowi === _rowi) {
+            return;
+          }
+
+          col.forEach(function(v) {
+            possibleValues.delete(v);
+          });
+        });
+      }
+
+      if (possibleValues.size < 1) {
+        possibleValues = new Set(col);
+
+        eachBox(currentPossibilities, rowi, coli, function(_rowi, _coli, row, col) {
+          if (!col) {
+            return;
+         } 
+
+          if ((rowi === _rowi) && (coli === _coli)) {
+            return;
+          }
+
+          col.forEach(function(v) {
+            possibleValues.delete(v);
+          });
+        });
+      }
+
+      if (possibleValues.size == 1) {
+        const v = Array.from(possibleValues)[0];
+        currentState[rowi][coli] = v;
+        paint();
+        found = true;
+        return true;
+      }
+
+      console.log('possible', possibleValues);
+    });
+  }
+
+  return found;
+}
+
+});
+
+</script>
+</body>
